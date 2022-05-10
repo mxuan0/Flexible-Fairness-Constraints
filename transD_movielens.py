@@ -454,7 +454,7 @@ def train_gcmc(data_loader,counter,args,train_hash,modelD,optimizerD,\
                         fair_optim.step()
         else:
             task_loss,preds = modelD(p_batch_var)
-            fair_penalty = Variable(torch.zeros(1)).cuda()
+            fair_penalty = Variable(torch.zeros(1)).to(args.device)
             optimizerD.zero_grad()
             full_loss = task_loss + args.gamma*fair_penalty
             full_loss.backward(retain_graph=False)

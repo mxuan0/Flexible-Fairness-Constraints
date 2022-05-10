@@ -80,7 +80,7 @@ def test_dummy(args,test_dataset,modelD,net,dummy,experiment,\
     preds_list, probs_list, labels_list = [], [],[]
     sensitive_attr = net.users_sensitive
     for p_batch in test_loader:
-        p_batch_var = Variable(p_batch).cuda()
+        p_batch_var = Variable(p_batch).to(args.device)
         p_batch_emb = modelD.encode(p_batch_var.detach(),filter_set)
         y = sensitive_attr[p_batch]
         preds = dummy.predict(p_batch_emb)
@@ -108,10 +108,10 @@ def test_random(args,test_dataset,modelD,net,experiment,\
     correct = 0
     preds_list, probs_list, labels_list = [], [],[]
     for p_batch in test_loader:
-        p_batch_var = Variable(p_batch).cuda()
+        p_batch_var = Variable(p_batch).to(args.device)
         p_batch_emb = modelD.encode(p_batch_var.detach(),filter_set)
         y_hat, y = net.predict(p_batch_emb,p_batch_var)
-        preds = (y_hat > torch.Tensor([0.5]).cuda()).float() * 1
+        preds = (y_hat > torch.Tensor([0.5]).to(args.device)).float() * 1
         correct += preds.eq(y.view_as(preds)).sum().item()
         preds_list.append(preds)
         probs_list.append(y_hat)
@@ -132,7 +132,7 @@ def train_random(args,modelD,train_dataset,test_dataset,\
         attr_data,experiment,filter_set=None):
     modelD.eval()
     net = RandomDiscriminator(args.use_1M,args.embed_dim,attr_data,\
-            'random',use_cross_entropy=args.use_cross_entropy).to(args.device)
+            'random',args,use_cross_entropy=args.use_cross_entropy).to(args.device)
     opt = optimizer(net.parameters(),'adam', args.lr)
     train_loader = DataLoader(train_dataset, num_workers=1, batch_size=3000)
     train_data_itr = enumerate(train_loader)
@@ -144,14 +144,14 @@ def train_random(args,modelD,train_dataset,test_dataset,\
             test_random(args,test_dataset,modelD,net,experiment,epoch,filter_set)
 
         for p_batch in train_loader:
-            p_batch_var = Variable(p_batch).cuda()
+            p_batch_var = Variable(p_batch).to(args.device)
             p_batch_emb = modelD.encode(p_batch_var.detach(),filter_set)
             opt.zero_grad()
             y_hat, y = net(p_batch_emb,p_batch_var)
             loss = criterion(y_hat, y)
             loss.backward()
             opt.step()
-            preds = (y_hat > torch.Tensor([0.5]).cuda()).float() * 1
+            preds = (y_hat > torch.Tensor([0.5]).to(args.device)).float() * 1
             correct = preds.eq(y.view_as(preds)).sum().item()
             acc = 100. * correct / len(p_batch)
             AUC = roc_auc_score(y.data.cpu().numpy(),\
@@ -170,10 +170,10 @@ def test_gender(args,test_dataset,modelD,net,experiment,\
     correct = 0
     preds_list, probs_list, labels_list  = [], [], []
     for p_batch in test_loader:
-        p_batch_var = Variable(p_batch).cuda()
+        p_batch_var = Variable(p_batch).to(args.device)
         p_batch_emb = modelD.encode(p_batch_var.detach(),filter_set)
         y_hat, y = net.predict(p_batch_emb,p_batch_var)
-        preds = (y_hat > torch.Tensor([0.5]).cuda()).float() * 1
+        preds = (y_hat > torch.Tensor([0.5]).to(args.device)).float() * 1
         correct += preds.eq(y.view_as(preds)).sum().item()
         preds_list.append(preds)
         probs_list.append(y_hat)
@@ -194,7 +194,7 @@ def train_gender(args,modelD,train_dataset,test_dataset,\
         attr_data,experiment,filter_set=None):
     modelD.eval()
     net = GenderDiscriminator(args.use_1M,args.embed_dim,attr_data,\
-            'gender',use_cross_entropy=args.use_cross_entropy).to(args.device)
+            'gender',args,use_cross_entropy=args.use_cross_entropy).to(args.device)
     opt = optimizer(net.parameters(),'adam', args.lr)
     train_loader = DataLoader(train_dataset, num_workers=1, batch_size=3000)
     train_data_itr = enumerate(train_loader)
@@ -206,14 +206,14 @@ def train_gender(args,modelD,train_dataset,test_dataset,\
             test_gender(args,test_dataset,modelD,net,experiment,epoch,filter_set)
         embs_list, labels_list = [], []
         for p_batch in train_loader:
-            p_batch_var = Variable(p_batch).cuda()
+            p_batch_var = Variable(p_batch).to(args.device)
             p_batch_emb = modelD.encode(p_batch_var.detach(),filter_set)
             opt.zero_grad()
             y_hat, y = net(p_batch_emb,p_batch_var)
             loss = criterion(y_hat, y)
             loss.backward()
             opt.step()
-            preds = (y_hat > torch.Tensor([0.5]).cuda()).float() * 1
+            preds = (y_hat > torch.Tensor([0.5]).to(args.device)).float() * 1
             correct = preds.eq(y.view_as(preds)).sum().item()
             acc = 100. * correct / len(p_batch)
             AUC = roc_auc_score(y.data.cpu().numpy(),\
@@ -244,7 +244,7 @@ def test_age(args,test_dataset,modelD,net,experiment,\
     correct = 0
     preds_list, labels_list, probs_list = [], [],[]
     for p_batch in test_loader:
-        p_batch_var = Variable(p_batch).cuda()
+        p_batch_var = Variable(p_batch).to(args.device)
         p_batch_emb = modelD.encode(p_batch_var.detach(),filter_set)
         y_hat, y = net.predict(p_batch_emb,p_batch_var)
         preds = y_hat.max(1, keepdim=True)[1] # get the index of the max
@@ -268,7 +268,7 @@ def train_age(args,modelD,train_dataset,test_dataset,attr_data,\
         experiment,filter_set=None):
     modelD.eval()
     net = AgeDiscriminator(args.use_1M,args.embed_dim,attr_data,\
-            'age',use_cross_entropy=args.use_cross_entropy).to(args.device)
+            'age',args,use_cross_entropy=args.use_cross_entropy).to(args.device)
     opt = optimizer(net.parameters(),'adam', args.lr)
     train_loader = DataLoader(train_dataset, num_workers=1, batch_size=3000)
     train_data_itr = enumerate(train_loader)
@@ -280,7 +280,7 @@ def train_age(args,modelD,train_dataset,test_dataset,attr_data,\
             test_age(args,test_dataset,modelD,net,experiment,epoch,filter_set)
         embs_list, labels_list = [], []
         for p_batch in train_loader:
-            p_batch_var = Variable(p_batch).cuda()
+            p_batch_var = Variable(p_batch).to(args.device)
             p_batch_emb = modelD.encode(p_batch_var.detach(),filter_set)
             opt.zero_grad()
             y_hat, y = net(p_batch_emb,p_batch_var)
@@ -314,7 +314,7 @@ def test_occupation(args,test_dataset,modelD,net,experiment,epoch,filter_set=Non
     correct = 0
     preds_list, labels_list, probs_list = [], [],[]
     for p_batch in test_loader:
-        p_batch_var = Variable(p_batch).cuda()
+        p_batch_var = Variable(p_batch).to(args.device)
         p_batch_emb = modelD.encode(p_batch_var.detach(),filter_set)
         y_hat, y = net.predict(p_batch_emb,p_batch_var)
         preds = y_hat.max(1, keepdim=True)[1] # get the index of the max
@@ -346,7 +346,7 @@ def train_occupation(args,modelD,train_dataset,test_dataset,\
         attr_data,experiment,filter_set=None):
     modelD.eval()
     net = OccupationDiscriminator(args.use_1M,args.embed_dim,attr_data,\
-            'occupation',use_cross_entropy=args.use_cross_entropy).to(args.device)
+            'occupation',args,use_cross_entropy=args.use_cross_entropy).to(args.device)
     opt = optimizer(net.parameters(),'adam', args.lr)
     train_loader = DataLoader(train_dataset, num_workers=1, batch_size=8000)
     train_data_itr = enumerate(train_loader)
@@ -358,7 +358,7 @@ def train_occupation(args,modelD,train_dataset,test_dataset,\
             test_occupation(args,test_dataset,modelD,net,experiment,epoch,filter_set)
         embs_list, labels_list = [], []
         for p_batch in train_loader:
-            p_batch_var = Variable(p_batch).cuda()
+            p_batch_var = Variable(p_batch).to(args.device)
             p_batch_emb = modelD.encode(p_batch_var.detach(),filter_set)
             opt.zero_grad()
             y_hat, y = net(p_batch_emb,p_batch_var)
@@ -429,11 +429,11 @@ def calc_attribute_bias(mode,args,modelD,experiment,\
     group_embeds_list = []
     calc_majority_class(groups,attribute)
     for idx, movies in test_data_itr:
-        movies_var = Variable(movies).cuda()
+        movies_var = Variable(movies).to(args.device)
         with torch.no_grad():
             movies_embed = modelD.encode(movies_var)
             for group, vals in groups.items():
-                users_var = Variable(torch.LongTensor(vals)).cuda()
+                users_var = Variable(torch.LongTensor(vals)).to(args.device)
                 users_embed = modelD.encode(users_var,filter_)
                 group_embeds_list.append(users_embed)
 
@@ -486,8 +486,8 @@ def test(dataset, args, all_hash, modelD, subsample=1):
         r_batch = ltensor(r_batch).contiguous()
 
         if args.use_cuda:
-            l_batch = l_batch.cuda()
-            r_batch = r_batch.cuda()
+            l_batch = l_batch.to(args.device)
+            r_batch = r_batch.to(args.device)
 
         l_batch = Variable(l_batch)
         r_batch = Variable(r_batch)
@@ -532,7 +532,7 @@ def test_gcmc(dataset, args, modelD,filter_set=None):
     rels_list =[]
     test_loss_list = []
     for idx, p_batch in data_itr:
-        p_batch_var = Variable(p_batch).cuda()
+        p_batch_var = Variable(p_batch).to(args.device)
         lhs, rel, rhs = p_batch_var[:,0],p_batch_var[:,1],p_batch_var[:,2]
         test_loss,preds = modelD(p_batch_var,filters=filter_set)
         rel += 1
@@ -558,7 +558,7 @@ def test_nce(dataset, args, modelD, epoch, experiment):
     rels_list =[]
     correct = 0
     for idx, p_batch in data_itr:
-        p_batch_var = Variable(p_batch).cuda()
+        p_batch_var = Variable(p_batch).to(args.device)
         lhs, rel, rhs = p_batch_var[:,0],p_batch_var[:,1],p_batch_var[:,2]
         preds,weighted_preds,probs = modelD.predict(lhs,rhs)
         probs_list.append(probs.squeeze())
@@ -595,7 +595,7 @@ def train_fairness_classifier_gcmc(train_dataset,args,modelD,experiment,fairD,\
     # for epoch in tqdm(range(1, args.num_classifier_epochs + 1)):
     for idx, p_batch in train_data_itr:
         fair_optim.zero_grad()
-        p_batch_var = Variable(p_batch).cuda()
+        p_batch_var = Variable(p_batch).to(args.device)
         p_batch_emb = modelD.encode(p_batch_var)
         if filter_ is not None:
             p_batch_emb = filter_(p_batch_emb)
@@ -702,7 +702,7 @@ def test_fairness_gcmc(test_dataset,args,modelD,experiment,fairD,\
 
     ''' Test Classifier on Nodes '''
     for idx, p_batch in test_data_itr:
-        p_batch_var = Variable(p_batch).cuda()
+        p_batch_var = Variable(p_batch).to(args.device)
         p_batch_emb = modelD.encode(p_batch_var)
         ''' If Compositional Add the Attribute Specific Filter '''
         if filter_ is not None:

@@ -155,7 +155,7 @@ def main(args):
         modelD = TransE(args.num_ent, args.num_rel, args.embed_dim,\
                 args.p).to(args.device)
     else:
-        decoder = SharedBilinearDecoder(args.num_rel,2,args.embed_dim).to(args.device)
+        decoder = SharedBilinearDecoder(args.num_rel,2,args.embed_dim, args).to(args.device)
         modelD = SimpleGCMC(decoder,args.embed_dim,args.num_ent,args.p).to(args.device)
 
     ''' Initialize Everything to None '''
@@ -167,11 +167,11 @@ def main(args):
         attr_data = [args.users,args.movies]
         ''' Initialize Discriminators '''
         fairD_gender = GenderDiscriminator(args.use_1M,args.embed_dim,attr_data,\
-                'gender',use_cross_entropy=args.use_cross_entropy).to(args.device)
+                'gender',args,use_cross_entropy=args.use_cross_entropy).to(args.device)
         fairD_occupation = OccupationDiscriminator(args.use_1M,args.embed_dim,attr_data,\
-                attribute='occupation',use_cross_entropy=args.use_cross_entropy)
+                attribute='occupation',arg=args,use_cross_entropy=args.use_cross_entropy)
         fairD_age = AgeDiscriminator(args.use_1M,args.embed_dim,attr_data,\
-                attribute='age',use_cross_entropy=args.use_cross_entropy)
+                attribute='age',arg=args,use_cross_entropy=args.use_cross_entropy)
 
         ''' Initialize Optimizers '''
         if args.sample_mask:

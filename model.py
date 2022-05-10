@@ -442,9 +442,9 @@ class SharedBilinearDecoder(nn.Module):
     between the embeddings (i.e., one learned matrix per relationship type).
     """
 
-    def __init__(self, num_relations, num_weights, embed_dim):
+    def __init__(self, num_relations, num_weights, embed_dim, arg):
         super(SharedBilinearDecoder, self).__init__()
-        self.rel_embeds = nn.Embedding(num_weights, embed_dim*embed_dim)
+        self.rel_embeds, self.arg = nn.Embedding(num_weights, embed_dim*embed_dim), arg
         self.weight_scalars = nn.Parameter(torch.Tensor(num_weights,num_relations))
         stdv = 1. / math.sqrt(self.weight_scalars.size(1))
         self.weight_scalars.data.uniform_(-stdv, stdv)
@@ -453,11 +453,11 @@ class SharedBilinearDecoder(nn.Module):
         self.num_relations = num_relations
         self.nll = nn.NLLLoss()
         self.mse = nn.MSELoss()
-
+        
     def predict(self,embeds1,embeds2):
         basis_outputs = []
         for i in range(0,self.num_weights):
-            index = Variable(torch.LongTensor([i])).cuda()
+            index = Variable(torch.LongTensor([i])).to(self.arg.device)
             rel_mat = self.rel_embeds(index).reshape(self.embed_dim,\
                     self.embed_dim)
             u_Q = torch.matmul(embeds1, rel_mat)
@@ -468,7 +468,7 @@ class SharedBilinearDecoder(nn.Module):
         outputs = F.log_softmax(logit,dim=1)
         preds = 0
         for j in range(0,self.num_relations):
-            index = Variable(torch.LongTensor([j])).cuda()
+            index = Variable(torch.LongTensor([j])).to(self.arg.device)
             ''' j+1 because of zero index '''
             preds += (j+1)*torch.exp(torch.index_select(outputs, 1,index))
         return preds
@@ -476,7 +476,7 @@ class SharedBilinearDecoder(nn.Module):
     def forward(self, embeds1, embeds2, rels):
         basis_outputs = []
         for i in range(0,self.num_weights):
-            index = Variable(torch.LongTensor([i])).cuda()
+            index = Variable(torch.LongTensor([i])).to(self.arg.device)
             rel_mat = self.rel_embeds(index).reshape(self.embed_dim,\
                     self.embed_dim)
             u_Q = torch.matmul(embeds1, rel_mat)
@@ -489,7 +489,7 @@ class SharedBilinearDecoder(nn.Module):
         loss = self.nll(outputs,rels)
         preds = 0
         for j in range(0,self.num_relations):
-            index = Variable(torch.LongTensor([j])).cuda()
+            index = Variable(torch.LongTensor([j])).to(self.arg.device)
             ''' j+1 because of zero index '''
             preds += (j+1)*torch.exp(torch.index_select(outputs, 1,index))
         return loss,preds
@@ -551,9 +551,9 @@ class SimpleGCMC(nn.Module):
         self.load_state_dict(torch.load(fn))
 
 class RandomDiscriminator(nn.Module):
-    def __init__(self,use_1M,embed_dim,attribute_data,attribute,use_cross_entropy=True):
+    def __init__(self,use_1M,embed_dim,attribute_data,attribute, arg, use_cross_entropy=True):
         super(RandomDiscriminator, self).__init__()
-        self.embed_dim = int(embed_dim)
+        self.embed_dim, self.arg = int(embed_dim), arg
         self.attribute_data = attribute_data
         self.attribute = attribute
         if use_cross_entropy:
@@ -598,7 +598,7 @@ class RandomDiscriminator(nn.Module):
     def forward(self, ents_emb, ents, return_loss=False):
         scores = self.net(ents_emb)
         output = self.sigmoid(scores)
-        A_labels = Variable(torch.FloatTensor(self.users_sensitive[ents.cpu()])).cuda()
+        A_labels = Variable(torch.FloatTensor(self.users_sensitive[ents.cpu()])).to(self.arg.device)
         if return_loss:
             loss = self.criterion(output.squeeze(), A_labels)
             return loss
@@ -609,8 +609,8 @@ class RandomDiscriminator(nn.Module):
         with torch.no_grad():
             scores = self.net(ents_emb)
             output = self.sigmoid(scores)
-            A_labels = Variable(torch.FloatTensor(self.users_sensitive[ents.cpu()])).cuda()
-            preds = (output > torch.Tensor([0.5]).cuda()).float() * 1
+            A_labels = Variable(torch.FloatTensor(self.users_sensitive[ents.cpu()])).to(self.arg.device)
+            preds = (output > torch.Tensor([0.5]).to(self.arg.device)).float() * 1
         if return_preds:
             return output.squeeze(),A_labels,preds
         else:
@@ -623,9 +623,9 @@ class RandomDiscriminator(nn.Module):
         self.load_state_dict(torch.load(fn))
 
 class GenderDiscriminator(nn.Module):
-    def __init__(self,use_1M,embed_dim,attribute_data,attribute,use_cross_entropy=True):
+    def __init__(self,use_1M,embed_dim,attribute_data,attribute,arg,use_cross_entropy=True):
         super(GenderDiscriminator, self).__init__()
-        self.embed_dim = int(embed_dim)
+        self.embed_dim, self.arg = int(embed_dim), arg
         self.attribute_data = attribute_data
         self.attribute = attribute
         if use_cross_entropy:
@@ -674,7 +674,7 @@ class GenderDiscriminator(nn.Module):
     def forward(self, ents_emb, ents, return_loss=False):
         scores = self.net(ents_emb)
         output = self.sigmoid(scores)
-        A_labels = Variable(torch.FloatTensor(self.users_sensitive[ents.cpu()])).cuda()
+        A_labels = Variable(torch.FloatTensor(self.users_sensitive[ents.cpu()])).to(self.arg.device)
         if return_loss:
             loss = self.criterion(output.squeeze(), A_labels)
             return loss
@@ -685,8 +685,8 @@ class GenderDiscriminator(nn.Module):
         with torch.no_grad():
             scores = self.net(ents_emb)
             output = self.sigmoid(scores)
-            A_labels = Variable(torch.FloatTensor(self.users_sensitive[ents.cpu()])).cuda()
-            preds = (output > torch.Tensor([0.5]).cuda()).float() * 1
+            A_labels = Variable(torch.FloatTensor(self.users_sensitive[ents.cpu()])).to(self.arg.device)
+            preds = (output > torch.Tensor([0.5]).to(self.arg.device)).float() * 1
         if return_preds:
             return output.squeeze(),A_labels,preds
         else:
@@ -699,9 +699,9 @@ class GenderDiscriminator(nn.Module):
         self.load_state_dict(torch.load(fn))
 
 class AgeDiscriminator(nn.Module):
-    def __init__(self,use_1M,embed_dim,attribute_data,attribute,use_cross_entropy=True):
+    def __init__(self,use_1M,embed_dim,attribute_data,attribute,arg,use_cross_entropy=True):
         super(AgeDiscriminator, self).__init__()
-        self.embed_dim = int(embed_dim)
+        self.embed_dim, self.arg = int(embed_dim), arg
         self.attribute_data = attribute_data
         self.attribute = attribute
         self.criterion = nn.NLLLoss()
@@ -754,7 +754,7 @@ class AgeDiscriminator(nn.Module):
     def forward(self, ents_emb, ents, return_loss=False):
         scores = self.net(ents_emb)
         output = F.log_softmax(scores, dim=1)
-        A_labels = Variable(torch.LongTensor(self.users_sensitive[ents.cpu()])).cuda()
+        A_labels = Variable(torch.LongTensor(self.users_sensitive[ents.cpu()])).to(self.arg.device)
         if return_loss:
             loss = self.criterion(output.squeeze(), A_labels)
             return loss
@@ -765,7 +765,7 @@ class AgeDiscriminator(nn.Module):
         with torch.no_grad():
             scores = self.net(ents_emb)
             output = F.log_softmax(scores, dim=1)
-            A_labels = Variable(torch.LongTensor(self.users_sensitive[ents.cpu()])).cuda()
+            A_labels = Variable(torch.LongTensor(self.users_sensitive[ents.cpu()])).to(self.arg.device)
             preds = output.max(1, keepdim=True)[1] # get the index of the max
         if return_preds:
             return output.squeeze(),A_labels,preds
@@ -779,7 +779,7 @@ class AgeDiscriminator(nn.Module):
         self.load_state_dict(torch.load(fn))
 
 class OccupationDiscriminator(nn.Module):
-    def __init__(self,use_1M,embed_dim,attribute_data,attribute,use_cross_entropy=True):
+    def __init__(self,use_1M,embed_dim,attribute_data,attribute,arg,use_cross_entropy=True):
         super(OccupationDiscriminator, self).__init__()
         self.embed_dim = int(embed_dim)
         self.attribute_data = attribute_data
@@ -790,7 +790,7 @@ class OccupationDiscriminator(nn.Module):
         else:
             self.cross_entropy = False
 
-        users_occupation = attribute_data[0]['occupation']
+        users_occupation, self.arg = attribute_data[0]['occupation'], arg
         if use_1M:
             self.users_sensitive = np.ascontiguousarray(users_occupation.values)
             self.out_dim = 21
@@ -831,7 +831,7 @@ class OccupationDiscriminator(nn.Module):
     def forward(self, ents_emb, ents, return_loss=False):
         scores = self.net(ents_emb)
         output = F.log_softmax(scores, dim=1)
-        A_labels = Variable(torch.LongTensor(self.users_sensitive[ents.cpu()])).cuda()
+        A_labels = Variable(torch.LongTensor(self.users_sensitive[ents.cpu()])).to(self.arg.device)
         if return_loss:
             loss = self.criterion(output.squeeze(), A_labels)
             return loss
@@ -842,7 +842,7 @@ class OccupationDiscriminator(nn.Module):
         with torch.no_grad():
             scores = self.net(ents_emb)
             output = F.log_softmax(scores, dim=1)
-            A_labels = Variable(torch.LongTensor(self.users_sensitive[ents.cpu()])).cuda()
+            A_labels = Variable(torch.LongTensor(self.users_sensitive[ents.cpu()])).to(self.arg.device)
             preds = output.max(1, keepdim=True)[1] # get the index of the max
         if return_preds:
             return output.squeeze(),A_labels,preds
